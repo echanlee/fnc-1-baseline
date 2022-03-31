@@ -66,8 +66,8 @@ if __name__ == "__main__":
         y_test = ys[fold]
 
         # data_dmatrix = xgb.DMatrix(data=X_train,label=y_train)
-        xg_reg = xgb.XGBRegressor(objective ='multi:softmax', colsample_bytree = 0.3, learning_rate = 0.1,
-                max_depth = 5, alpha = 10, n_estimators = 200, num_class=5)
+        xg_reg = xgb.XGBRegressor(objective ='multi:softmax', colsample_bytree = 0.36, learning_rate = 0.1,
+                max_depth = 4, alpha = 10, n_estimators = 200, num_class=5)
         xg_reg.fit(X_train,y_train)
 
         # clf = GradientBoostingClassifier(n_estimators=200, random_state=14128, verbose=True)
