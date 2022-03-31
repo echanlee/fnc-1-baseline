@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+import xgboost as xgb
 
 from sklearn.ensemble import GradientBoostingClassifier
 from feature_engineering import refuting_features, polarity_features, hand_features, gen_or_load_feats
@@ -64,10 +65,15 @@ if __name__ == "__main__":
         X_test = Xs[fold]
         y_test = ys[fold]
 
-        clf = GradientBoostingClassifier(n_estimators=200, random_state=14128, verbose=True)
-        clf.fit(X_train, y_train)
+        # data_dmatrix = xgb.DMatrix(data=X_train,label=y_train)
+        xg_reg = xgb.XGBRegressor(objective ='multi:softmax', colsample_bytree = 0.3, learning_rate = 0.1,
+                max_depth = 5, alpha = 10, n_estimators = 200, num_class=5)
+        xg_reg.fit(X_train,y_train)
 
-        predicted = [LABELS[int(a)] for a in clf.predict(X_test)]
+        # clf = GradientBoostingClassifier(n_estimators=200, random_state=14128, verbose=True)
+        # clf.fit(X_train, y_train)
+
+        predicted = [LABELS[int(a)] for a in xg_reg.predict(X_test)]
         actual = [LABELS[int(a)] for a in y_test]
 
         fold_score, _ = score_submission(actual, predicted)
@@ -78,7 +84,7 @@ if __name__ == "__main__":
         print("Score for fold "+ str(fold) + " was - " + str(score))
         if score > best_score:
             best_score = score
-            best_fold = clf
+            best_fold = xg_reg
 
 
 
