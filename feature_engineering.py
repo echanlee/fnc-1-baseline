@@ -4,10 +4,12 @@ import nltk
 import numpy as np
 from sklearn import feature_extraction
 from tqdm import tqdm
+from sklearn.metrics.pairwise import cosine_similarity
+from utils.score import LABELS
 
 
 _wnl = nltk.WordNetLemmatizer()
-
+label_ref = {'agree': 0, 'disagree': 1, 'discuss': 2, 'unrelated': 3}
 
 def normalize_word(w):
     return _wnl.lemmatize(w).lower()
@@ -21,7 +23,6 @@ def clean(s):
     # Cleans a string: Lowercasing, trimming, removing non-alphanumeric
 
     return " ".join(re.findall(r'\w+', s, flags=re.UNICODE)).lower()
-
 
 def remove_stopwords(l):
     # Removes stopwords from a list of tokens
@@ -154,6 +155,102 @@ def append_ngrams(features, text_headline, text_body, size):
     features.append(grams_early_hits)
     return features
 
+def initialize_train(stances, train, tfreq, tfidf_vectorizer):
+
+    # Initialise
+    heads = []
+    heads_track = {}
+    bodies = []
+    bodies_track = {}
+    body_ids = []
+    id_ref = {}
+    X_train = []
+    # y_train = []
+    cos_track = {}
+    head_tfidf_track = {}
+    body_tfidf_track = {}
+
+    # Identify unique heads and bodies
+    for instance in stances:
+        head = instance['Headline']
+        body_id = instance['Body ID']
+        if head not in heads_track:
+            heads.append(head)
+            heads_track[head] = 1
+        if body_id not in bodies_track:
+            bodies.append(train.bodies[body_id])
+            bodies_track[body_id] = 1
+            body_ids.append(body_id)
+
+    # Create reference dictionary
+    for i, elem in enumerate(heads + body_ids):
+        id_ref[elem] = i
+
+    # Process train set
+    for instance in stances:
+        head = instance['Headline']
+        body_id = instance['Body ID']
+        head_tf = tfreq[id_ref[head]].reshape(1, -1)
+        body_tf = tfreq[id_ref[body_id]].reshape(1, -1)
+        if head not in head_tfidf_track:
+            head_tfidf = tfidf_vectorizer.transform([head]).toarray()
+            head_tfidf_track[head] = head_tfidf
+        else:
+            head_tfidf = head_tfidf_track[head]
+        if body_id not in body_tfidf_track:
+            body_tfidf = tfidf_vectorizer.transform([train.bodies[body_id]]).toarray()
+            body_tfidf_track[body_id] = body_tfidf
+        else:
+            body_tfidf = body_tfidf_track[body_id]
+        if (head, body_id) not in cos_track:
+            tfidf_cos = cosine_similarity(head_tfidf, body_tfidf)[0].reshape(1, 1)
+            cos_track[(head, body_id)] = tfidf_cos
+        else:
+            tfidf_cos = cos_track[(head, body_id)]
+        feat_vec = np.squeeze(np.c_[head_tf, body_tf, tfidf_cos])
+        X_train.append(feat_vec)
+        # y_train.append(label_ref[instance['Stance']])
+
+    return X_train
+
+def initialize_test(stances, test, bow_vectorizer, tfreq_vectorizer, tfidf_vectorizer):
+
+    # Initialise
+    X,y = [],[]
+    heads_track = {}
+    bodies_track = {}
+    cos_track = {}
+
+    # Process test set
+    for instance in stances:
+        head = instance['Headline']
+        body_id = instance['Body ID']
+        if head not in heads_track:
+            head_bow = bow_vectorizer.transform([head]).toarray()
+            head_tf = tfreq_vectorizer.transform(head_bow).toarray()[0].reshape(1, -1)
+            head_tfidf = tfidf_vectorizer.transform([head]).toarray().reshape(1, -1)
+            heads_track[head] = (head_tf, head_tfidf)
+        else:
+            head_tf = heads_track[head][0]
+            head_tfidf = heads_track[head][1]
+        if body_id not in bodies_track:
+            body_bow = bow_vectorizer.transform([test.articles[body_id]]).toarray()
+            body_tf = tfreq_vectorizer.transform(body_bow).toarray()[0].reshape(1, -1)
+            body_tfidf = tfidf_vectorizer.transform([test.articles[body_id]]).toarray().reshape(1, -1)
+            bodies_track[body_id] = (body_tf, body_tfidf)
+        else:
+            body_tf = bodies_track[body_id][0]
+            body_tfidf = bodies_track[body_id][1]
+        if (head, body_id) not in cos_track:
+            tfidf_cos = cosine_similarity(head_tfidf, body_tfidf)[0].reshape(1, 1)
+            cos_track[(head, body_id)] = tfidf_cos
+        else:
+            tfidf_cos = cos_track[(head, body_id)]
+        feat_vec = np.squeeze(np.c_[head_tf, body_tf, tfidf_cos])
+        X.append(feat_vec)
+        y.append(LABELS.index(instance['Stance']))
+
+    return X, y
 
 def hand_features(headlines, bodies):
 
