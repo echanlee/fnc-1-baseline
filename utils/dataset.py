@@ -7,21 +7,24 @@ class DataSet():
 
         print("Reading dataset")
         bodies = name+"_bodies.csv"
-        stances = name+"_stances.csv"
+        if name != "test" : 
+            stances = name+"_stances.csv"
 
-        self.stances = self.read(stances)
+            self.stances = self.read(stances)
+            #make the body ID an integer value
+            for s in self.stances:
+                s['Body ID'] = int(s['Body ID'])
+            print("Total stances: " + str(len(self.stances)))
         articles = self.read(bodies)
         self.articles = dict()
 
-        #make the body ID an integer value
-        for s in self.stances:
-            s['Body ID'] = int(s['Body ID'])
+        
 
         #copy all bodies into a dictionary
         for article in articles:
             self.articles[int(article['Body ID'])] = article['articleBody']
 
-        print("Total stances: " + str(len(self.stances)))
+        
         print("Total bodies: " + str(len(self.articles)))
 
 
